@@ -1,0 +1,24 @@
+# ── Core RL stack ──────────────────────────────────────────────────────────────
+gymnasium==0.29.1           # OpenAI Gym successor — defines Env API
+stable-baselines3==2.3.2    # PPO implementation we'll use for training
+# PyTorch: install the version matching your CUDA setup.
+# For CPU-only (safe default):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# For CUDA 12.1:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+torch>=2.0.0
+torchvision>=0.15.0
+
+# ── Computer vision & screen capture ──────────────────────────────────────────
+opencv-python==4.9.0.80     # Frame processing, HP bar detection
+mss==9.0.1                  # Fast cross-platform screen capture (Windows-ready)
+numpy>=1.24.0               # Array operations everywhere
+
+# ── Game input ────────────────────────────────────────────────────────────────
+pydirectinput==1.0.4        # Sends DirectInput keypresses (required for games)
+                            # NOTE: run your terminal as Administrator on Windows
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+pillow>=10.0.0              # Image I/O helper (used by mss internally)
+tensorboard>=2.14.0         # Training visualisation — launch with:
+                            #   tensorboard --logdir ./logs

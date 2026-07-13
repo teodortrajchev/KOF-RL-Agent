@@ -1,17 +1,14 @@
 # env/position.py
 #
-# PURPOSE:
 #   Determine whether the enemy is currently to the player's LEFT or RIGHT,
 #   and how far away (normalized). This is needed because block direction
 #   and several movement decisions are relative to enemy position, not
 #   absolute screen position.
 #
-# APPROACH:
 #   Background-subtraction blob tracking, not template matching. This means
 #   it works without a per-character sprite template, but it DOES need
 #   tuning against real footage — the defaults here are starting points.
 #
-# LIMITATIONS (read before trusting this in training):
 #   - Assumes the two fighters are the largest moving foreground blobs in
 #     the play-field band. Hit sparks / projectiles / UI flashes are noise
 #     and can occasionally cause a bad frame — that's why `valid` exists.

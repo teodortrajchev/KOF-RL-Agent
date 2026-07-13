@@ -37,9 +37,7 @@ class GameController:
         self.hold_duration = hold_duration
         self.buff_state = 0
 
-    # ─────────────────────────────────────────────
     # ACTION DISPATCH
-    # ─────────────────────────────────────────────
     def execute_action(self, action: int, enemy_is_right: bool = True):
 
         # idle
@@ -61,10 +59,6 @@ class GameController:
         # crouch
         elif action == 4:
             self._hold("s")
-
-        # ─────────────────────────────
-        # ATTACKS
-        # ─────────────────────────────
 
         # light punch
         elif action == 5:
@@ -116,9 +110,7 @@ class GameController:
         elif action == 16:
             self._tap("l")
 
-    # ─────────────────────────────────────────────
-    # BLOCKING (now direction-aware, no more coin flip)
-    # ─────────────────────────────────────────────
+    # BLOCKING
     def _directional_hold(self, enemy_is_right: bool):
         direction = "d" if enemy_is_right else "a"
         try:
@@ -128,9 +120,7 @@ class GameController:
         except Exception:
             pass
 
-    # ─────────────────────────────────────────────
-    # BUFF SYSTEM (O BUTTON)
-    # ─────────────────────────────────────────────
+    # BUFF SYSTEM
     def tap_key(self, key: str):
         """Public single-key tap, for non-gameplay actions like menu
         confirmation (round-end / continue screens in match mode)."""
@@ -145,9 +135,7 @@ class GameController:
         self.buff_state = (self.buff_state % 3) + 1
         self._tap("o")
 
-    # ─────────────────────────────────────────────
     # PRIMITIVES
-    # ─────────────────────────────────────────────
     def _tap(self, key: str):
         pydirectinput.keyDown(key)
         time.sleep(self.hold_duration)

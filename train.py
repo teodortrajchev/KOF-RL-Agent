@@ -10,9 +10,7 @@ from stable_baselines3.common.callbacks import (
 from env.kof_env import KOFEnv
 
 
-# ─────────────────────────────────────────────
 # PATHS
-# ─────────────────────────────────────────────
 LOG_DIR = "./logs"
 CHECKPOINT_DIR = "./checkpoints"
 BEST_MODEL_DIR = "./best_model"
@@ -22,7 +20,6 @@ os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 os.makedirs(BEST_MODEL_DIR, exist_ok=True)
 
 
-# ─────────────────────────────────────────────
 # MODE CURRICULUMwjaadjsidj and the round keeps going).
 # Match mode is the real deployment target but is expensive per episode
 # (menu navigation, round-end animations, occasional stuck-on-menu retries).
@@ -71,20 +68,12 @@ class ModeCurriculumCallback(BaseCallback):
         return True
 
 
-# ─────────────────────────────────────────────
-# ENV FACTORY
-# ─────────────────────────────────────────────
 def make_env(mode: str):
     def _init():
         return KOFEnv(render_mode=None, mode=mode)
     return _init
 
-
-# ─────────────────────────────────────────────
-# TRAIN CONFIG
-# ─────────────────────────────────────────────
 TOTAL_TIMESTEPS = 1_000_000
-
 
 def train():
 
@@ -103,13 +92,11 @@ def train():
     env = DummyVecEnv([make_env("training")])
     eval_env = DummyVecEnv([make_env("match")])
 
-    # ─────────────────────────────────────────────
     # MODEL — MultiInputPolicy, because observation_space is now a Dict
     # ({"image": ..., "vector": ...}). SB3's CombinedExtractor runs a
     # NatureCNN over "image" and an MLP over "vector", then concatenates
     # — this is how side-detection / buff-state / time-remaining get to
     # the policy without polluting the pixel input.
-    # ─────────────────────────────────────────────
     model = PPO(
         policy="MultiInputPolicy",
         env=env,
@@ -125,9 +112,7 @@ def train():
         tensorboard_log=LOG_DIR,
     )
 
-    # ─────────────────────────────────────────────
     # CALLBACKS
-    # ─────────────────────────────────────────────
     checkpoint_cb = CheckpointCallback(
         save_freq=20_000,
         save_path=CHECKPOINT_DIR,
@@ -145,9 +130,7 @@ def train():
 
     curriculum_cb = ModeCurriculumCallback()
 
-    # ─────────────────────────────────────────────
     # TRAIN
-    # ─────────────────────────────────────────────
     print("Starting PPO training …")
     print("Open TensorBoard: tensorboard --logdir ./logs")
     print(
@@ -161,13 +144,10 @@ def train():
         reset_num_timesteps=True
     )
 
-    # ─────────────────────────────────────────────
     # SAVE FINAL MODEL
-    # ─────────────────────────────────────────────
     model.save(os.path.join(CHECKPOINT_DIR, "kof_ppo_final"))
 
     print("\nTraining complete. Model saved.")
-
 
 if __name__ == "__main__":
     train()

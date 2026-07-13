@@ -1,18 +1,11 @@
 # env/rewards.py
 #
-# PURPOSE:
 #   Computes the scalar reward signal for each timestep.
 #
 # VERSION 1 — placeholder rewards only:
 #   • +0.1  every step (survival bonus — discourages dying fast)
 #   • Hooks for win/loss bonuses are present but return 0 until
-#     HP bar detection is implemented in v2.
-#
-# WHY a separate module?
-#   Reward shaping is the part of RL you iterate on most.  Keeping it
-#   isolated means you can swap reward logic without touching the env.
-#
-# FUTURE iterations will:
+
 #   • Parse HP bar pixel values from vision.py's raw BGR frame
 #   • Return  Δ(enemy_hp) − Δ(player_hp)  as dense reward signal
 #   • Add a large bonus/penalty on round win/loss
@@ -64,7 +57,7 @@ class RewardCalculator:
         self.loss_penalty    = loss_penalty
         self.hp_delta_scale  = hp_delta_scale
 
-    # ── Public API ────────────────────────────────────────────────────────────
+    #Public API
 
     def compute(
         self,
@@ -85,16 +78,16 @@ class RewardCalculator:
         """
         reward = 0.0
 
-        # ── 1. Survival bonus ─────────────────────────────────────────────
+        #Survival bonus
         # Given every step.  Motivates the agent to stay alive longer.
         reward += self.survival_bonus
 
-        # ── 2. HP delta reward (v2 — currently returns 0) ─────────────────
+        # HP delta reward (v2 — currently returns 0)
         # Will be:  reward += hp_delta_scale * (Δenemy_hp − Δplayer_hp)
         # Positive when agent damages the enemy more than it takes damage.
         reward += self._hp_delta_reward(prev_state, curr_state)
 
-        # ── 3. Round outcome bonus ────────────────────────────────────────
+        # Round outcome bonus
         if curr_state.is_round_over:
             if curr_state.player_won:
                 reward += self.win_reward
@@ -103,7 +96,6 @@ class RewardCalculator:
 
         return reward
 
-    # ── Private helpers ───────────────────────────────────────────────────────
 
     def _hp_delta_reward(
         self,
@@ -125,7 +117,6 @@ class RewardCalculator:
         return 0.0
 
 
-# ── Standalone test ───────────────────────────────────────────────────────────
 if __name__ == "__main__":
     calc = RewardCalculator()
 

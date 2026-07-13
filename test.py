@@ -1,22 +1,16 @@
-# test.py
-#
-# PURPOSE:
 #   Load a saved PPO model and run it in the game without any training.
 #   Use this to evaluate how well the agent plays after training.
-#
-# USAGE:
 #   python test.py --model checkpoints/kof_ppo_final
 #   python test.py --mode match
-#   python test.py          ← uses defaults below
+#   python test.py
 
 import argparse
 from stable_baselines3 import PPO
 from env.kof_env import KOFEnv
 
-DEFAULT_MODEL_PATH = "checkpoints/kof_ppo_final"
-NUM_EPISODES       = 5     # how many episodes to run
-RENDER             = True  # set False to disable cv2 preview window
-
+DEFAULT_MODEL_PATH = "checkpoints/kof_ppo_20000_steps"
+NUM_EPISODES= 5
+RENDER= True  #False to disable cv2 preview window
 
 def run_agent(model_path: str, mode: str) -> None:
     print(f"Loading model: {model_path}.zip  (eval mode={mode})")
@@ -26,18 +20,18 @@ def run_agent(model_path: str, mode: str) -> None:
     for ep in range(1, NUM_EPISODES + 1):
         obs, _ = env.reset()
         total_reward = 0.0
-        steps        = 0
-        done         = False
+        steps= 0
+        done= False
 
         print(f"\n── Episode {ep}/{NUM_EPISODES} ──")
 
         while not done:
             # deterministic=True → always pick the most likely action
             # (no exploration noise during evaluation)
-            action, _ = model.predict(obs, deterministic=True)
+            action, _ = model.predict(obs, deterministic=False)
             obs, reward, terminated, truncated, info = env.step(int(action))
             total_reward += reward
-            steps        += 1
+            steps+= 1
             done = terminated or truncated
 
             if RENDER:
@@ -52,7 +46,7 @@ def run_agent(model_path: str, mode: str) -> None:
             else:
                 outcome = "  → DRAW (bars) / decided by HP"
 
-        print(f"   Steps: {steps}  |  Total reward: {total_reward:.2f}{outcome}")
+        print(f"Steps: {steps}  |  Total reward: {total_reward:.2f}{outcome}")
 
     env.close()
     print("\nEvaluation complete.")

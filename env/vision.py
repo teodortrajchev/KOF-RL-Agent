@@ -5,36 +5,32 @@ import cv2
 import mss
 import mss.tools
 
-# ── Configuration ─────────────────────────────────────────────────────────────
 
 OBS_SIZE: int = 84
 
 DEFAULT_GAME_REGION: dict = {
-    "top": 218,
-    "left": 2,
+    "top": 0,
+    "left": 0,
     "width": 954,
-    "height": 597,
+    "height": 600,
 }
 
-# HP BAR REGIONS (relative to the game window)
-# These may need small adjustments after testing.
+# HP BAR REGIONS
 
 PLAYER_HP_REGION = {
-    "x": 75,
-    "y": 2,
-    "w": 298,
-    "h": 20,
+    "x": 210,
+    "y": 70,
+    "w": 205,
+    "h": 17,
 }
 
 ENEMY_HP_REGION = {
-    "x": 581,
-    "y": 2,
-    "w": 298,
-    "h": 20,
+    "x": 550,
+    "y": 70,
+    "w": 205,
+    "h": 17,
 }
 # Full HP calibration values
-# Adjust these if needed after further testing.
-
 PLAYER_HP_MAX = 0.89
 ENEMY_HP_MAX = 0.88
 
@@ -50,15 +46,13 @@ class ScreenCapture:
         self.obs_size = obs_size
         self._sct = mss.mss()
 
-    # ── Unified single-grab capture (USE THIS FROM THE ENV) ─────────────────
-    #
+    # Unified single-grab capture (USE THIS FROM THE ENV)
     # The old pattern — grab_frame() for pixels, then get_player_hp() and
     # get_enemy_hp() each calling grab_raw_bgr() again — issued THREE
     # separate mss.grab() calls per env.step(). Each grab happens at a
     # slightly different wall-clock moment, so the pixel observation and
     # the HP values used for reward were never actually looking at the same
     # instant, and you were paying 3x the capture cost for no reason.
-    #
     # This method grabs once and derives everything from that one frame.
 
     def get_observation_bundle(self) -> tuple[np.ndarray, float, float, np.ndarray]:
@@ -87,7 +81,7 @@ class ScreenCapture:
 
         return obs_frame, player_hp, enemy_hp, raw_bgr
 
-    # ── Frame Capture (kept for standalone use / backward compatibility) ────
+    # Frame Capture (kept for standalone use / backward compatibility)
 
     def grab_frame(self) -> np.ndarray:
         raw = self._sct.grab(self.game_region)
@@ -108,7 +102,7 @@ class ScreenCapture:
         # Make a contiguous copy so OpenCV can draw on it
         return np.ascontiguousarray(np.array(raw)[..., :3])
 
-    # ── HP Detection ─────────────────────────────────────────────────────────
+    # HP Detection
 
     def _get_hp_percentage(
         self,
@@ -157,7 +151,7 @@ class ScreenCapture:
         raw_hp = self._get_hp_percentage(frame, ENEMY_HP_REGION, reverse=True)
         return min(raw_hp / ENEMY_HP_MAX, 1.0)
 
-    # ── Cleanup ──────────────────────────────────────────────────────────────
+    # Cleanup
 
     def close(self) -> None:
         self._sct.close()
@@ -167,7 +161,7 @@ class ScreenCapture:
         return (self.obs_size, self.obs_size, 1)
 
 
-# ── Standalone Test ──────────────────────────────────────────────────────────
+# Standalone Test
 
 if __name__ == "__main__":
 

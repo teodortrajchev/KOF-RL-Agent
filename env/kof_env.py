@@ -9,18 +9,14 @@ from env.vision import ScreenCapture
 from env.position import PositionTracker
 
 
-# ─────────────────────────────────────────────
 # GAME STATE
-# ─────────────────────────────────────────────
 @dataclass
 class GameState:
     player_hp: float = 1.0
     enemy_hp: float = 1.0
 
 
-# ─────────────────────────────────────────────
 # ENVIRONMENT
-# ─────────────────────────────────────────────
 class KOFEnv(gym.Env):
     """
     mode="training":
@@ -59,23 +55,23 @@ class KOFEnv(gym.Env):
         self.mode = mode
         self.render_mode = render_mode
 
-        # ── core modules ─────────────────────────
+        # core modules
         self.controller = GameController()
         self.capture = ScreenCapture(game_region=game_region)
         self.position_tracker = PositionTracker()
 
-        # ── match state ───────────────────────────
+        #match state
         self.player_bars = 2
         self.enemy_bars = 2
 
-        # ── frame stacking ───────────────────────
+        #frame stacking
         self.stack_size = self.STACK_SIZE
         self.frame_stack = []
 
-        # ── action space ─────────────────────────
+        #action space
         self.action_space = spaces.Discrete(self.controller.action_count())
 
-        # ── observation space (Dict: pixels + game-state vector) ─────────
+        # observation space (Dict: pixels + game-state vector)
         # Use SB3's MultiInputPolicy with this. The vector head carries
         # exactly the information pixels can't reliably give you: which
         # side the enemy is on, what buff state you're in, and how much
@@ -94,7 +90,7 @@ class KOFEnv(gym.Env):
             ),
         })
 
-        # ── internal state ───────────────────────
+        # internal state
         self._step_count = 0
         self._current_obs = None
         self._prev_state = GameState()
@@ -105,9 +101,7 @@ class KOFEnv(gym.Env):
         self._enemy_low_streak = 0
         self._player_low_streak = 0
 
-    # ─────────────────────────────────────────────
     # RESET
-    # ─────────────────────────────────────────────
     def reset(self, *, seed=None, options=None):
         super().reset(seed=seed)
 
@@ -145,9 +139,7 @@ class KOFEnv(gym.Env):
 
         return obs, {"step": 0}
 
-    # ─────────────────────────────────────────────
     # MATCH-MODE ROUND-START RECOVERY
-    # ─────────────────────────────────────────────
     def _ensure_round_started(
         self,
         timeout: float = 20.0,
@@ -189,18 +181,14 @@ class KOFEnv(gym.Env):
         )
         return False
 
-    # ─────────────────────────────────────────────
     # STACKING
-    # ─────────────────────────────────────────────
     def _stack(self, frame):
         self.frame_stack.append(frame)
         if len(self.frame_stack) > self.stack_size:
             self.frame_stack.pop(0)
         return np.concatenate(self.frame_stack, axis=2)
 
-    # ─────────────────────────────────────────────
     # VECTOR OBS
-    # ─────────────────────────────────────────────
     def _build_vector_obs(self, player_hp, enemy_hp):
         dx_norm = self._last_dx_norm()
 
@@ -226,9 +214,7 @@ class KOFEnv(gym.Env):
         dx = self.position_tracker._enemy_x - self.position_tracker._self_x
         return float(np.clip(dx / 954.0, -1.0, 1.0))
 
-    # ─────────────────────────────────────────────
     # STEP
-    # ─────────────────────────────────────────────
     def step(self, action: int):
 
         old_player_hp = self._prev_state.player_hp
@@ -245,9 +231,7 @@ class KOFEnv(gym.Env):
         pos_result = self.position_tracker.update(raw_bgr)
         self._enemy_is_right = pos_result["enemy_is_right"]
 
-        # ─────────────────────────────────────────
         # LIFE-LOST DETECTION (HP resets from near-0 to near-full)
-        #
         # BUG FIX: the previous condition was
         #   old_enemy_hp > 0.2 and enemy_hp > 0.8
         # — that checks HP was ABOVE 20% before the jump, which is true
@@ -267,7 +251,6 @@ class KOFEnv(gym.Env):
         #   - a 2-frame debounce requires the low reading to persist
         #     across consecutive frames before it counts, so a single
         #     noisy frame can't trigger a false KO on its own.
-        # ─────────────────────────────────────────
         if self._step_count < self.RESET_GRACE_STEPS:
             enemy_life_lost = False
             player_life_lost = False
@@ -307,9 +290,7 @@ class KOFEnv(gym.Env):
 
         self._prev_state = GameState(player_hp_for_state, enemy_hp_for_state)
 
-        # ─────────────────────────────────────────
         # BAR BOOKKEEPING — only real in match mode
-        # ─────────────────────────────────────────
         enemy_bar_lost = False
         player_bar_lost = False
 
@@ -323,9 +304,7 @@ class KOFEnv(gym.Env):
         # in training mode bars stay fixed at 2/2 — they're not meaningful,
         # we just don't touch them.
 
-        # ─────────────────────────────────────────
         # DAMAGE THIS STEP
-        # ─────────────────────────────────────────
         damage_dealt = max(0.0, old_enemy_hp - enemy_hp) if not enemy_life_lost else 0.0
         damage_taken = max(0.0, old_player_hp - player_hp) if not player_life_lost else 0.0
 
@@ -374,9 +353,7 @@ class KOFEnv(gym.Env):
 
         self._step_count += 1
 
-        # ─────────────────────────────────────────
         # TERMINATION
-        # ─────────────────────────────────────────
         terminated = False
         if self.mode == "match":
             terminated = self.enemy_bars <= 0 or self.player_bars <= 0
@@ -387,14 +364,11 @@ class KOFEnv(gym.Env):
 
         truncated = self._step_count >= self.MAX_STEPS
 
-        # ─────────────────────────────────────────
         # TRUNCATION TIE-BREAK (match mode only) — Goal 5
-        #
         # The previous version had NO logic here at all: a round that hit
         # the time limit without either side losing all bars just ended
         # with no win/loss signal, even though your stated real-match rule
         # is "lower HP loses, higher HP wins, equal HP draws".
-        # ─────────────────────────────────────────
         if truncated and self.mode == "match" and not terminated:
             if self.player_bars != self.enemy_bars:
                 if self.player_bars > self.enemy_bars:
@@ -443,9 +417,7 @@ class KOFEnv(gym.Env):
 
         return obs, reward, terminated, truncated, info
 
-    # ─────────────────────────────────────────────
     # RENDER
-    # ─────────────────────────────────────────────
     def render(self):
         if self._current_obs is None:
             return None
@@ -465,9 +437,7 @@ class KOFEnv(gym.Env):
 
         return None
 
-    # ─────────────────────────────────────────────
     # CLOSE
-    # ─────────────────────────────────────────────
     def close(self):
         self.controller.release_all()
         self.capture.close()

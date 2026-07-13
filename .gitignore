@@ -1,0 +1,6 @@
+.venv/
+venv/
+checkpoints/*.zip
+best_model/*.zip
+__pycache__/
+*.pyc

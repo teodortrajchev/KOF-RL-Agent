@@ -1,4 +1,5 @@
-from env.kof_env import KOFEnv
+from kof_env import KOFEnv
+#smeneto od env.kof_env
 import time
 
 env = KOFEnv(render_mode="human", mode="training")

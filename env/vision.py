@@ -18,15 +18,15 @@ DEFAULT_GAME_REGION: dict = {
 # HP BAR REGIONS
 
 PLAYER_HP_REGION = {
-    "x": 210,
-    "y": 70,
+    "x": 110,
+    "y": 80,
     "w": 205,
     "h": 17,
 }
 
 ENEMY_HP_REGION = {
-    "x": 550,
-    "y": 70,
+    "x": 450,
+    "y": 80,
     "w": 205,
     "h": 17,
 }

@@ -18,16 +18,16 @@ DEFAULT_GAME_REGION: dict = {
 # HP BAR REGIONS
 
 PLAYER_HP_REGION = {
-    "x": 110,
+    "x": 225,
     "y": 80,
-    "w": 205,
+    "w": 190,
     "h": 17,
 }
 
 ENEMY_HP_REGION = {
-    "x": 450,
+    "x": 545,
     "y": 80,
-    "w": 205,
+    "w": 190,
     "h": 17,
 }
 # Full HP calibration values

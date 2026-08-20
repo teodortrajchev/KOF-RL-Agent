@@ -1,40 +1,56 @@
 import time
+import ctypes
 import pydirectinput
 
 pydirectinput.PAUSE = 0.0
 
 
-# PER-PLAYER KEYMAPS
+# ============================================================
+# WINDOWS NUMPAD VIRTUAL-KEY CODES
+# ============================================================
 
-# Every action in GameController is expressed in terms of these logical
-# roles (left / right / up / down / punch_lt / kick_lt / buff / punch_hv /
-# kick_hv / extra). Swapping the keymap is all that's needed to drive P1
-# vs P2 — none of the action-dispatch logic changes.
+VK_NUMPAD1 = 0x61
+VK_NUMPAD2 = 0x62
+VK_NUMPAD3 = 0x63
+VK_NUMPAD4 = 0x64
+VK_NUMPAD5 = 0x65
+VK_NUMPAD6 = 0x66
+
+
+# ============================================================
+# PER-PLAYER KEYMAPS
+# ============================================================
 
 P1_KEYMAP = {
     "left": "a",
     "right": "d",
     "up": "w",
     "down": "s",
-    "punch_lt": "u",   # light punch
-    "kick_lt": "i",    # light kick
+
+    "punch_lt": "u",
+    "kick_lt": "i",
     "buff": "o",
-    "punch_hv": "j",   # heavy punch
-    "kick_hv": "k",    # heavy kick
+
+    "punch_hv": "j",
+    "kick_hv": "k",
     "extra": "l",
 }
+
 
 P2_KEYMAP = {
     "left": "left",
     "right": "right",
     "up": "up",
     "down": "down",
-    "punch_lt": "num4",
-    "kick_lt": "num5",
-    "buff": "num6",
-    "punch_hv": "num1",
-    "kick_hv": "num2",
-    "extra": "num3",
+
+    # ACTUAL NUMPAD KEYS
+    "punch_lt": VK_NUMPAD4,
+    "kick_lt": VK_NUMPAD5,
+    "buff": VK_NUMPAD6,
+
+    "punch_hv": VK_NUMPAD1,
+    "kick_hv": VK_NUMPAD2,
+    "extra": VK_NUMPAD3,
 }
 
 
@@ -43,165 +59,344 @@ class GameController:
     PPO-friendly controller.
 
     ACTION SPACE (17 actions):
+
       0  idle
       1  move left
       2  move right
-      3  jump-forward attack   (direction-aware — see execute_action)
+      3  jump-forward attack
       4  crouch
       5  light punch
       6  heavy punch
       7  light kick
       8  heavy kick
       9  anti-air combo
-      10 block                (direction-aware — see execute_action)
-      11 buff (buff button)
-      12 crouching light kick (low poke)
-      13 crouching heavy punch (anti-poke)
-      14 backdash              (direction-aware — retreats from enemy)
-      15 forward rush + heavy punch (direction-aware — closes distance)
+      10 block
+      11 buff
+      12 crouching light kick
+      13 crouching heavy punch
+      14 backdash
+      15 forward rush + heavy punch
       16 extra button tap
 
-    Actions 3, 10, 14, 15 need to know where the enemy is, since "block" or
-    "retreat" or "advance" only mean something relative to the enemy's
-    position. Pass `enemy_is_right` into execute_action for these.
+    P1 uses normal keyboard keys.
 
-    For 2-player (agent vs agent) use, construct one GameController per
-    player with the matching keymap:
-        p1 = GameController(keymap=P1_KEYMAP)
-        p2 = GameController(keymap=P2_KEYMAP)
-    Each instance only ever presses its own player's keys, so both can be
-    driven independently within the same game tick without conflicts.
+    P2 uses arrow keys for movement and physical NUMPAD keys
+    for attacks.
     """
 
-    def __init__(self, hold_duration: float = 0.06, keymap: dict | None = None):
+    def __init__(
+        self,
+        hold_duration: float = 0.06,
+        keymap: dict | None = None
+    ):
         self.hold_duration = hold_duration
         self.buff_state = 0
         self.keymap = keymap or P1_KEYMAP
 
+    # ========================================================
+    # LOW-LEVEL KEYBOARD HELPERS
+    # ========================================================
+
+    @staticmethod
+    def _is_numpad_key(key):
+        return isinstance(key, int)
+
+    @staticmethod
+    def _numpad_down(vk):
+        """
+        Press an actual Windows NUMPAD key.
+
+        keybd_event receives the Windows virtual-key code.
+        """
+
+        ctypes.windll.user32.keybd_event(
+            vk,
+            0,
+            0,
+            0
+        )
+
+    @staticmethod
+    def _numpad_up(vk):
+        """
+        Release an actual Windows NUMPAD key.
+        """
+
+        ctypes.windll.user32.keybd_event(
+            vk,
+            0,
+            2,
+            0
+        )
+
+    def _key_down(self, key):
+        if self._is_numpad_key(key):
+            self._numpad_down(key)
+        else:
+            pydirectinput.keyDown(key)
+
+    def _key_up(self, key):
+        if self._is_numpad_key(key):
+            self._numpad_up(key)
+        else:
+            pydirectinput.keyUp(key)
+
+    # ========================================================
     # ACTION DISPATCH
-    def execute_action(self, action: int, enemy_is_right: bool = True):
+    # ========================================================
+
+    def execute_action(
+        self,
+        action: int,
+        enemy_is_right: bool = True
+    ):
         km = self.keymap
 
-        # idle
+        # ----------------------------------------------------
+        # IDLE
+        # ----------------------------------------------------
+
         if action == 0:
             time.sleep(self.hold_duration)
             return
 
-        # movement
+        # ----------------------------------------------------
+        # MOVEMENT
+        # ----------------------------------------------------
+
         if action == 1:
             self._tap(km["left"])
 
         elif action == 2:
             self._tap(km["right"])
 
-        # jump forward attack — direction-aware
-        elif action == 3:
-            toward_key = km["right"] if enemy_is_right else km["left"]
-            self._combo([km["up"], toward_key])
+        # ----------------------------------------------------
+        # JUMP FORWARD ATTACK
+        # ----------------------------------------------------
 
-        # crouch
+        elif action == 3:
+            toward_key = (
+                km["right"]
+                if enemy_is_right
+                else km["left"]
+            )
+
+            self._combo([
+                km["up"],
+                toward_key
+            ])
+
+        # ----------------------------------------------------
+        # CROUCH
+        # ----------------------------------------------------
+
         elif action == 4:
             self._hold(km["down"])
 
-
+        # ====================================================
         # ATTACKS
+        # ====================================================
 
-        # light punch
+        # Light punch
         elif action == 5:
             self._tap(km["punch_lt"])
 
-        # heavy punch
+        # Heavy punch
         elif action == 6:
             self._tap(km["punch_hv"])
 
-        # light kick
+        # Light kick
         elif action == 7:
             self._tap(km["kick_lt"])
 
-        # heavy kick
+        # Heavy kick
         elif action == 8:
             self._tap(km["kick_hv"])
 
-        # anti-air combo
-        elif action == 9:
-            self._combo([km["up"], km["punch_hv"]])
+        # ----------------------------------------------------
+        # ANTI-AIR COMBO
+        # ----------------------------------------------------
 
-        # block — hold TOWARD the enemy
+        elif action == 9:
+            self._combo([
+                km["up"],
+                km["punch_hv"]
+            ])
+
+        # ----------------------------------------------------
+        # BLOCK
+        # ----------------------------------------------------
+
         elif action == 10:
             self._directional_hold(enemy_is_right)
 
-        # buff system
+        # ----------------------------------------------------
+        # BUFF
+        # ----------------------------------------------------
+
         elif action == 11:
             self._use_buff()
 
-        # crouching light kick (low poke)
+        # ----------------------------------------------------
+        # CROUCHING LIGHT KICK
+        # ----------------------------------------------------
+
         elif action == 12:
-            self._combo([km["down"], km["kick_lt"]])
+            self._combo([
+                km["down"],
+                km["kick_lt"]
+            ])
 
-        # crouching heavy punch (anti-poke, more commitment)
+        # ----------------------------------------------------
+        # CROUCHING HEAVY PUNCH
+        # ----------------------------------------------------
+
         elif action == 13:
-            self._combo([km["down"], km["punch_hv"]])
+            self._combo([
+                km["down"],
+                km["punch_hv"]
+            ])
 
-        # backdash — move AWAY from the enemy
+        # ----------------------------------------------------
+        # BACKDASH
+        # ----------------------------------------------------
+
         elif action == 14:
-            away_key = km["left"] if enemy_is_right else km["right"]
+            away_key = (
+                km["left"]
+                if enemy_is_right
+                else km["right"]
+            )
+
             self._tap(away_key)
 
-        # forward rush + heavy punch — move TOWARD the enemy and swing
+        # ----------------------------------------------------
+        # FORWARD RUSH + HEAVY PUNCH
+        # ----------------------------------------------------
+
         elif action == 15:
-            toward_key = km["right"] if enemy_is_right else km["left"]
-            self._combo([toward_key, km["punch_hv"]])
+            toward_key = (
+                km["right"]
+                if enemy_is_right
+                else km["left"]
+            )
+
+            self._combo([
+                toward_key,
+                km["punch_hv"]
+            ])
+
+        # ----------------------------------------------------
+        # EXTRA
+        # ----------------------------------------------------
 
         elif action == 16:
             self._tap(km["extra"])
 
-    # BLOCKING (direction-aware)
+    # ========================================================
+    # BLOCKING
+    # ========================================================
+
     def _directional_hold(self, enemy_is_right: bool):
-        direction = self.keymap["right"] if enemy_is_right else self.keymap["left"]
+
+        direction = (
+            self.keymap["right"]
+            if enemy_is_right
+            else self.keymap["left"]
+        )
+
         try:
-            pydirectinput.keyDown(direction)
-            time.sleep(self.hold_duration * 2)
-            pydirectinput.keyUp(direction)
+            self._key_down(direction)
+
+            time.sleep(
+                self.hold_duration * 2
+            )
+
+            self._key_up(direction)
+
         except Exception:
             pass
 
+    # ========================================================
     # BUFF SYSTEM
-    def tap_key(self, key: str):
-        """Public single-key tap, for non-gameplay actions like menu
-        confirmation (round-end / continue screens in match mode)."""
+    # ========================================================
+
+    def tap_key(self, key):
+        """
+        Public single-key tap.
+
+        Useful for menu confirmation and other
+        non-gameplay actions.
+        """
+
         self._tap(key)
 
     def _use_buff(self):
-        self.buff_state = (self.buff_state % 3) + 1
-        self._tap(self.keymap["buff"])
 
+        self.buff_state = (
+            self.buff_state % 3
+        ) + 1
+
+        self._tap(
+            self.keymap["buff"]
+        )
+
+    # ========================================================
     # PRIMITIVES
-    def _tap(self, key: str):
-        pydirectinput.keyDown(key)
-        time.sleep(self.hold_duration)
-        pydirectinput.keyUp(key)
+    # ========================================================
 
-    def _hold(self, key: str):
-        pydirectinput.keyDown(key)
-        time.sleep(self.hold_duration * 2)
-        pydirectinput.keyUp(key)
+    def _tap(self, key):
 
-    def _combo(self, keys: list[str]):
-        for k in keys:
-            pydirectinput.keyDown(k)
+        self._key_down(key)
 
-        time.sleep(self.hold_duration)
+        time.sleep(
+            self.hold_duration
+        )
 
-        for k in keys:
-            pydirectinput.keyUp(k)
+        self._key_up(key)
+
+    def _hold(self, key):
+
+        self._key_down(key)
+
+        time.sleep(
+            self.hold_duration * 2
+        )
+
+        self._key_up(key)
+
+    def _combo(self, keys):
+
+        # Press all keys
+        for key in keys:
+            self._key_down(key)
+
+        time.sleep(
+            self.hold_duration
+        )
+
+        # Release all keys
+        for key in keys:
+            self._key_up(key)
+
+    # ========================================================
+    # RELEASE EVERYTHING
+    # ========================================================
 
     def release_all(self):
-        for k in self.keymap.values():
+
+        for key in self.keymap.values():
+
             try:
-                pydirectinput.keyUp(k)
+                self._key_up(key)
+
             except Exception:
                 pass
 
+    # ========================================================
+    # ACTION COUNT
+    # ========================================================
+
     @staticmethod
     def action_count():
-        return 17
+        return 171

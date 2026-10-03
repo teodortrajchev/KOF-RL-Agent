@@ -1,26 +1,15 @@
 # env/position.py
 #
-#   Determine whether the enemy is currently to the player's LEFT or RIGHT,
+#   Determine whether the enemy is currently to the player's left or right,
 #   and how far away (normalized). This is needed because block direction
 #   and several movement decisions are relative to enemy position, not
 #   absolute screen position.
-#
-#   Background-subtraction blob tracking, not template matching. This means
-#   it works without a per-character sprite template, but it DOES need
-#   tuning against real footage — the defaults here are starting points.
-#
+
 #   - Assumes the two fighters are the largest moving foreground blobs in
 #     the play-field band. Hit sparks / projectiles / UI flashes are noise
 #     and can occasionally cause a bad frame — that's why `valid` exists.
-#   - Needs a handful of frames after reset for the background model to
-#     settle (MOG2 warm-up). Don't trust results in the very first frames
-#     after `reset()`.
-#   - Identity ("which blob is me") is tracked frame-to-frame by nearest-
-#     neighbour continuity, seeded by `assume_self_starts_left`. If your
-#     character actually spawns on the right in KOF Wing, flip that flag.
-#   - This will drift/misfire during clinches or when characters overlap.
-#     Treat `dx_norm` as a noisy signal, not ground truth — smoothing
-#     (e.g. an EMA) is worth adding once you can see it against real frames.
+
+#   - Identity ("which blob is me")
 
 import numpy as np
 import cv2
@@ -58,9 +47,6 @@ class PositionTracker:
         )
 
     def reset(self):
-        """Call this from env.reset() — the background model must not
-        carry state across episodes (round-start screens etc. would
-        get baked in as 'background')."""
         self._bg = self._new_bg_subtractor()
         self._self_x = None
         self._enemy_x = None
@@ -68,11 +54,7 @@ class PositionTracker:
         self._stale_frames = 0
 
     def update(self, frame_bgr: np.ndarray) -> dict:
-        """
-        frame_bgr: raw BGR frame (same one used for HP detection — pass the
-        SAME captured frame here rather than grabbing a new one, to avoid
-        temporal desync between position, HP, and pixel obs).
-        """
+
         h, w = frame_bgr.shape[:2]
         y0 = int(h * self.playfield_band[0])
         y1 = int(h * self.playfield_band[1])
@@ -126,8 +108,7 @@ class PositionTracker:
 
     def _result(self, width: int) -> dict:
         if self._self_x is None or self._enemy_x is None:
-            # No reading yet — default to "enemy to the right" rather than
-            # silently blocking the wrong way every time.
+            # default to "enemy to the right" rather than silently blocking the wrong way every time.
             return {"enemy_is_right": True, "dx_norm": 0.0, "valid": False}
 
         dx = self._enemy_x - self._self_x

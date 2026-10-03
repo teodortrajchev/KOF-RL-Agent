@@ -3,25 +3,6 @@
 # Trains TWO independent PPO agents — one controlling P1, one controlling
 # P2 — against each other in the game's real local-2P mode, on one shared
 # game tick per step.
-#
-# WHY NOT model.learn()?
-#   SB3's normal training loop assumes exactly one policy stepping exactly
-#   one env. Here, one game tick has to carry BOTH players' actions at
-#   once (they're on the same keyboard, same screen, same frame). So this
-#   script drives SB3's internals directly instead of calling .learn():
-#     1. ask each policy for an action from its own observation
-#     2. send both actions to DualKOFEngine.step() in the same tick
-#     3. feed each policy's own (obs, action, reward) into its OWN
-#        rollout buffer
-#     4. once a buffer fills up (n_steps), run that model's normal PPO
-#        update (model.train()) — independently for each side
-#
-# This is intentionally close to what OnPolicyAlgorithm.collect_rollouts()
-# does internally in SB3 — it's just doing it for two policies in lockstep
-# instead of one. Because it touches SB3 internals (rollout_buffer,
-# policy.forward, obs_as_tensor) rather than the public .learn() API, it's
-# more fragile across SB3 versions than normal training — if you upgrade
-# stable-baselines3 and this breaks, that's the likely reason.
 
 import os
 import numpy as np
@@ -69,12 +50,7 @@ class _ShellEnv(gym.Env):
 
 
 def make_model(tensorboard_log: str, seed: int, n_steps: int, tb_log_name: str = "PPO") -> PPO:
-    # n_steps here fixes the rollout buffer's capacity at construction
-    # time. It MUST match the flush cadence train_dual() uses below
-    # (also called n_steps there) — PPO's buffer requires exactly
-    # `buffer.full` (i.e. buffer_size adds) before train() can call
-    # rollout_buffer.get(), so passing a different value at either call
-    # site desyncs the two and train() asserts.
+
     dummy_env = DummyVecEnv([lambda: _ShellEnv()])
     model = PPO(
         "MultiInputPolicy",
@@ -88,22 +64,13 @@ def make_model(tensorboard_log: str, seed: int, n_steps: int, tb_log_name: str =
         tensorboard_log=tensorboard_log,
         seed=seed,
     )
-    # Bypassing model.learn() (see module docstring) means SB3 never runs
-    # its own _setup_learn(), so model._logger is never created. Every
-    # call below to model.train() reads self.logger internally (e.g. for
-    # loss/clip-fraction records) and raises AttributeError on a fresh
-    # model without this. configure_logger() is the same helper
-    # _setup_learn() itself calls.
+
     model.set_logger(configure_logger(model.verbose, model.tensorboard_log, tb_log_name, reset_num_timesteps=True))
     return model
 
 
 def _batch(obs: dict) -> dict:
-    """Add the n_envs=1 axis SB3's buffers expect. Also transposes the
-    image from (H, W, C) to (C, H, W) — normally SB3's VecTransposeImage
-    wrapper does this automatically as observations flow through a VecEnv,
-    but this loop bypasses that pipeline and calls the policy directly, so
-    the transpose has to happen here instead."""
+
     out = {}
     for k, v in obs.items():
         if k == "image":
@@ -131,17 +98,11 @@ def _finish_rollout(model: PPO, last_obs: dict, done: bool, num_timesteps: int):
     model.rollout_buffer.compute_returns_and_advantage(
         last_values=last_values, dones=np.array([done])
     )
-    # learn() normally keeps num_timesteps current as rollouts are
-    # collected; since this loop drives the buffer manually, do the same
-    # here so the clip/LR schedules (which read _current_progress_remaining)
-    # and the tensorboard x-axis are meaningful instead of frozen at 0.
+
     model.num_timesteps = num_timesteps
     model._update_current_progress_remaining(model.num_timesteps, model._total_timesteps)
     model.train()
-    # train() only writes into the logger's in-memory buffer — learn()
-    # is normally what calls logger.dump() to flush it to tensorboard.
-    # Without this, "python -m tensorboard" would show nothing for the
-    # whole run even though training is proceeding correctly.
+
     model.logger.record("time/total_timesteps", model.num_timesteps)
     model.logger.dump(step=model.num_timesteps)
     model.rollout_buffer.reset()
@@ -159,8 +120,6 @@ def train_dual(
 
     model_p1 = make_model(tensorboard_log, seed=1, n_steps=n_steps, tb_log_name="PPO_P1")
     model_p2 = make_model(tensorboard_log, seed=2, n_steps=n_steps, tb_log_name="PPO_P2")
-    # Needed by _update_current_progress_remaining() in _finish_rollout();
-    # normally set by _setup_learn(), which this manual loop never calls.
     model_p1._total_timesteps = total_ticks
     model_p2._total_timesteps = total_ticks
 

@@ -21,12 +21,6 @@ os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 os.makedirs(BEST_MODEL_DIR, exist_ok=True)
 
 
-# MODE CURRICULUMwjaadjsidj and the round keeps going).
-# Match mode is the real deployment target but is expensive per episode
-# (menu navigation, round-end animations, occasional stuck-on-menu retries).
-# For an hours-long unattended run: spend most episodes in training mode,
-# but periodically run one match-mode episode so the policy still
-# experiences real bar-loss termination and the timeout tie-break rule.
 MATCH_EVERY_N_EPISODES = 5
 
 
@@ -34,14 +28,7 @@ class ModeCurriculumCallback(BaseCallback):
     """
     Switches the training env's mode between "training" and "match"
     based on episode count. Every Nth completed episode is followed by
-    one match-mode episode; all others run in training mode.
-
-    Note: SB3's DummyVecEnv auto-resets internally on the same step()
-    call that produces done=True, so by the time this callback observes
-    the episode boundary, that auto-reset already happened under the OLD
-    mode. The mode switch therefore takes effect one episode later than
-    it's "counted" here. Harmless over an hours-long run — this is just
-    controlling experience mix, not anything safety-critical.
+    one match-mode episode.All others run in training mode.
     """
 
     def __init__(self, match_every_n: int = MATCH_EVERY_N_EPISODES, verbose: int = 0):
@@ -81,16 +68,7 @@ def train():
 
     print("Creating vectorized environment (curriculum: training + periodic match) …")
 
-    # IMPORTANT: KOFEnv already returns a 4-frame-stacked image internally
-    # (see STACK_SIZE in kof_env.py). Do NOT also wrap this in
-    # VecFrameStack — the previous version did, which stacked already-
-    # stacked frames into 16 channels of overlapping, duplicated pixel
-    # data. Frame stacking happens in exactly one place: inside the env.
-    #
-    # Training env starts in "training" mode; the curriculum callback
-    # flips it to "match" periodically. Eval env is pinned to "match"
-    # always, since that's the real target you want checkpoint quality
-    # judged against.
+
     env = DummyVecEnv([make_env("training")])
 
 

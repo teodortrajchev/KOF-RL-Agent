@@ -80,9 +80,7 @@ class GameController:
         elif action == 9:
             self._combo(["w", "j"])
 
-        # block — hold TOWARD the enemy (this is how blocking works in
-        # most 2D fighters: you hold "back", i.e. the direction the enemy
-        # is on, not away from them)
+        # block
         elif action == 10:
             self._directional_hold(enemy_is_right)
 
@@ -94,16 +92,16 @@ class GameController:
         elif action == 12:
             self._combo(["s", "i"])
 
-        # crouching heavy punch (anti-poke, more commitment)
+        # crouching heavy punch
         elif action == 13:
             self._combo(["s", "j"])
 
-        # backdash — move AWAY from the enemy
+        # backdash (move AWAY from the enemy)
         elif action == 14:
             away_key = "a" if enemy_is_right else "d"
             self._tap(away_key)
 
-        # forward rush + heavy punch — move TOWARD the enemy and swing
+        # forward rush + heavy punch
         elif action == 15:
             toward_key = "d" if enemy_is_right else "a"
             self._combo([toward_key, "j"])
@@ -127,11 +125,6 @@ class GameController:
         self._tap(key)
 
     def _use_buff(self):
-        # The three "modes" are chosen by the game, not by which tap we
-        # send — every branch pressed the same key anyway, so this is
-        # just a single tap. buff_state is still tracked so the env can
-        # expose "how long since last buff press" if useful, and so a
-        # future version can read the actual active buff off-screen.
         self.buff_state = (self.buff_state % 3) + 1
         self._tap("o")
 

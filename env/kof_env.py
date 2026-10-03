@@ -18,23 +18,7 @@ class GameState:
 
 # ENVIRONMENT
 class KOFEnv(gym.Env):
-    """
-    mode="training":
-        - Bars are effectively infinite. HP resetting to full is treated as
-          a "life" ending (transient reward for whoever caused it) but does
-          NOT terminate the episode and does NOT decrement a bar counter.
-        - Episode only ends via MAX_STEPS (truncation). No win/loss bonus
-          at truncation, since there's no real match being decided.
 
-    mode="match":
-        - Real 2-bar system. Losing a bar decrements it; hitting 0 bars
-          terminates the episode with a terminal win/loss reward.
-        - If time runs out first (truncation), the round is scored by the
-          stated real-match rule: compare bars, then HP, to decide
-          win / loss / draw, and assign reward accordingly. The previous
-          version of this env had NO logic for this case — a round that
-          timed out gave no terminal signal at all.
-    """
 
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
@@ -42,7 +26,7 @@ class KOFEnv(gym.Env):
     STACK_SIZE = 4
     VECTOR_DIM = 7  # [dx_norm, buff_onehot(3), time_remaining_norm, hp_diff, enemy_hp]
 
-    # life-lost (bar-loss) detection tuning — see step() for why these exist
+    # life-lost (bar-loss) detection tuning
     LOW_HP_THRESHOLD = 0.15
     HIGH_HP_THRESHOLD = 0.8
     LOW_STREAK_REQUIRED = 2
@@ -71,12 +55,7 @@ class KOFEnv(gym.Env):
         #action space
         self.action_space = spaces.Discrete(self.controller.action_count())
 
-        # observation space (Dict: pixels + game-state vector)
-        # Use SB3's MultiInputPolicy with this. The vector head carries
-        # exactly the information pixels can't reliably give you: which
-        # side the enemy is on, what buff state you're in, and how much
-        # time is left — instead of trying to bake that into reward shaping
-        # alone or into the image.
+
         self.observation_space = spaces.Dict({
             "image": spaces.Box(
                 low=0, high=255,
@@ -109,10 +88,7 @@ class KOFEnv(gym.Env):
         self.position_tracker.reset()
         time.sleep(1.0)
 
-        # Match mode has a results/continue screen between rounds that
-        # needs a real button press to get back into live gameplay.
-        # Training mode never shows this (HP just resets to full while
-        # the round keeps running), so skip it there.
+
         if self.mode == "match":
             self._ensure_round_started()
 
@@ -139,27 +115,13 @@ class KOFEnv(gym.Env):
 
         return obs, {"step": 0}
 
-    # MATCH-MODE ROUND-START RECOVERY
+    # MATCH-MODE ROUND-START
     def _ensure_round_started(
         self,
         timeout: float = 20.0,
         poll_interval: float = 1.2,
         confirm_keys: tuple = ("enter", "space", "u"),
     ):
-        """
-        After a match ends there's almost certainly a results/continue
-        screen. Poll HP readings; if they look like "no bar detected"
-        (both near zero — a menu, black screen, or loading state won't
-        have the HP bar's orange color), tap through candidate confirm
-        keys until a live round is detected or we time out.
-
-        IMPORTANT: confirm_keys is a guess. Verify against the actual
-        game UI and adjust — wrong keys here just get tapped harmlessly
-        (or possibly do something unrelated in a menu), and if nothing
-        works the loop times out and training proceeds anyway rather
-        than hanging forever, but you'll waste steps on a bad episode
-        if the keys are wrong.
-        """
         start = time.time()
         key_idx = 0
 
@@ -226,26 +188,6 @@ class KOFEnv(gym.Env):
         self._last_pos=pos_result
         self._enemy_is_right = pos_result["enemy_is_right"]
 
-        # LIFE-LOST DETECTION (HP resets from near-0 to near-full)
-        # BUG FIX: the previous condition was
-        #   old_enemy_hp > 0.2 and enemy_hp > 0.8
-        # — that checks HP was ABOVE 20% before the jump, which is true
-        # almost all the time during normal play, so this fired on nearly
-        # every step where HP happened to read high, not on actual KOs.
-        # With only 2 bars, that alone was enough to zero a bar out in a
-        # handful of steps — which is exactly the ~7-24 step eval
-        # episodes you're seeing. A real reset means HP was NEAR DEATH
-        # (low), then jumped to full — so the low-side check needs to be
-        # `< LOW_HP_THRESHOLD`, not `> 0.2`.
-        #
-        # Two more guards on top of that fix:
-        #   - a short grace period after reset() ignores this check
-        #     entirely, since round-start intro animations (HP bars
-        #     filling from 0 to full) look exactly like a real reset but
-        #     aren't one.
-        #   - a 2-frame debounce requires the low reading to persist
-        #     across consecutive frames before it counts, so a single
-        #     noisy frame can't trigger a false KO on its own.
         if self._step_count < self.RESET_GRACE_STEPS:
             enemy_life_lost = False
             player_life_lost = False
@@ -285,7 +227,6 @@ class KOFEnv(gym.Env):
 
         self._prev_state = GameState(player_hp_for_state, enemy_hp_for_state)
 
-        # BAR BOOKKEEPING — only real in match mode
         enemy_bar_lost = False
         player_bar_lost = False
 
@@ -296,8 +237,6 @@ class KOFEnv(gym.Env):
             if player_life_lost:
                 self.player_bars -= 1
                 player_bar_lost = True
-        # in training mode bars stay fixed at 2/2 — they're not meaningful,
-        # we just don't touch them.
 
         # DAMAGE THIS STEP
         damage_dealt = max(0.0, old_enemy_hp - enemy_hp) if not enemy_life_lost else 0.0
@@ -307,23 +246,15 @@ class KOFEnv(gym.Env):
         reward_shaping = 0.0
         reward_terminal = 0.0
 
-        # dense damage reward — applied immediately (no periodic buffer).
-        # The old version accumulated damage over 5 steps before flushing,
-        # which both delays credit assignment and can misattribute reward
-        # across a life-lost event that happens mid-buffer. Immediate
-        # per-step reward is simpler and matches PPO's per-step advantage
-        # estimation better.
+
         reward_damage += damage_dealt * 15.0
         reward_damage -= damage_taken * 12.0
 
-        # low-HP aggression bonus (Goal 4): landing hits when the enemy is
-        # nearly dead is worth extra, specifically to counter the "backs off
-        # near victory" behavior.
+
         if damage_dealt > 0 and enemy_hp < 0.25:
             reward_damage += damage_dealt * 10.0
 
-        # hesitation penalty: idling / turtling / retreating when the enemy
-        # is nearly dead should be discouraged more than usual.
+        # idling / retreating when the enemyis nearly dead should be discouraged.
         PASSIVE_ACTIONS = {0, 4, 10, 14}  # idle, crouch, block, backdash
         if enemy_hp < 0.15 and action in PASSIVE_ACTIONS:
             reward_shaping -= 0.15
@@ -335,9 +266,7 @@ class KOFEnv(gym.Env):
         if action == 0:
             reward_shaping -= 0.02
 
-        # life-lost reward (transient — applies in BOTH modes, since it's
-        # useful dense signal even in training mode where it doesn't map
-        # to a real bar)
+        # life-lost reward
         if enemy_life_lost:
             reward_terminal += 5.0
         if player_life_lost:
@@ -359,11 +288,7 @@ class KOFEnv(gym.Env):
 
         truncated = self._step_count >= self.MAX_STEPS
 
-        # TRUNCATION TIE-BREAK (match mode only) — Goal 5
-        # The previous version had NO logic here at all: a round that hit
-        # the time limit without either side losing all bars just ended
-        # with no win/loss signal, even though your stated real-match rule
-        # is "lower HP loses, higher HP wins, equal HP draws".
+
         if truncated and self.mode == "match" and not terminated:
             if self.player_bars != self.enemy_bars:
                 if self.player_bars > self.enemy_bars:
@@ -377,8 +302,7 @@ class KOFEnv(gym.Env):
                     reward_terminal -= 100.0
                 # equal HP → draw → no bonus either way
 
-        # scale all three buckets by the same /10 factor so they stay
-        # directly comparable to the total reward and to each other
+        # scale all three buckets by the same /10 factor so they stay directly comparable to the total reward and to each other
         reward_damage /= 10.0
         reward_shaping /= 10.0
         reward_terminal /= 10.0
@@ -388,10 +312,6 @@ class KOFEnv(gym.Env):
             "step": self._step_count,
             "action": action,
             "reward": reward,
-            # reward breakdown — log these to tell apart "the agent is
-            # actually landing hits" from "reward is climbing because of
-            # shaping terms or noisy HP-bar detection". See
-            # RewardBreakdownCallback in train.py.
             "reward_damage": reward_damage,
             "reward_shaping": reward_shaping,
             "reward_terminal": reward_terminal,

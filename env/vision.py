@@ -34,7 +34,6 @@ ENEMY_HP_REGION = {
 PLAYER_HP_MAX = 0.89
 ENEMY_HP_MAX = 0.88
 
-
 class ScreenCapture:
 
     def __init__(
@@ -46,14 +45,7 @@ class ScreenCapture:
         self.obs_size = obs_size
         self._sct = mss.mss()
 
-    # Unified single-grab capture (USE THIS FROM THE ENV)
-    # The old pattern — grab_frame() for pixels, then get_player_hp() and
-    # get_enemy_hp() each calling grab_raw_bgr() again — issued THREE
-    # separate mss.grab() calls per env.step(). Each grab happens at a
-    # slightly different wall-clock moment, so the pixel observation and
-    # the HP values used for reward were never actually looking at the same
-    # instant, and you were paying 3x the capture cost for no reason.
-    # This method grabs once and derives everything from that one frame.
+
 
     def get_observation_bundle(self) -> tuple[np.ndarray, float, float, np.ndarray]:
         """

@@ -1,14 +1,6 @@
-# env/rewards.py
-#
-#   Computes the scalar reward signal for each timestep.
-#
-# VERSION 1 — placeholder rewards only:
-#   • +0.1  every step (survival bonus — discourages dying fast)
-#   • Hooks for win/loss bonuses are present but return 0 until
 
-#   • Parse HP bar pixel values from vision.py's raw BGR frame
-#   • Return  Δ(enemy_hp) − Δ(player_hp)  as dense reward signal
-#   • Add a large bonus/penalty on round win/loss
+#   Computes the scalar reward signal for each timestep.
+
 
 from dataclasses import dataclass
 
@@ -17,10 +9,7 @@ from dataclasses import dataclass
 class GameState:
     """
     Snapshot of the game at a single timestep.
-
-    All HP values are floats in [0.0, 1.0] (fraction of full health).
-    In v1 these are all placeholder defaults — v2 will populate them
-    from real pixel-based HP bar detection.
+    All HP values are floats in [0.0, 1.0]
     """
     player_hp: float = 1.0        # Current player health (0 = dead)
     enemy_hp: float  = 1.0        # Current enemy health  (0 = dead)
@@ -29,21 +18,6 @@ class GameState:
 
 
 class RewardCalculator:
-    """
-    Computes the per-step reward given the previous and current GameState.
-
-    Parameters
-    ----------
-    survival_bonus : float
-        Small positive reward added every step the player is alive.
-        Keeps the agent from standing still and getting killed instantly.
-    win_reward : float
-        Reward given when the player wins a round.
-    loss_penalty : float
-        Penalty (negative reward) when the player loses a round.
-    hp_delta_scale : float
-        Multiplier for the HP-difference reward (used in v2+).
-    """
 
     def __init__(
         self,
@@ -64,27 +38,16 @@ class RewardCalculator:
         prev_state: GameState,
         curr_state: GameState,
     ) -> float:
-        """
-        Return the scalar reward for one environment step.
 
-        Parameters
-        ----------
-        prev_state : GameState  — state at the START of the step
-        curr_state : GameState  — state at the END of the step
+        #Return the scalar reward for one environment step.
 
-        Returns
-        -------
-        float — the reward signal passed to the RL agent
-        """
         reward = 0.0
 
         #Survival bonus
         # Given every step.  Motivates the agent to stay alive longer.
         reward += self.survival_bonus
 
-        # HP delta reward (v2 — currently returns 0)
-        # Will be:  reward += hp_delta_scale * (Δenemy_hp − Δplayer_hp)
-        # Positive when agent damages the enemy more than it takes damage.
+
         reward += self._hp_delta_reward(prev_state, curr_state)
 
         # Round outcome bonus
@@ -102,19 +65,16 @@ class RewardCalculator:
         prev: GameState,
         curr: GameState,
     ) -> float:
-        """
-        Dense reward based on HP changes this step.
 
-        v1: returns 0.0 (HP values are placeholders).
-        v2: uncomment the formula below once HP detection is working.
-        """
-        # ── v2 formula (uncomment when HP detection is ready) ──
-        # enemy_hp_lost  = prev.enemy_hp  - curr.enemy_hp    # positive = good
-        # player_hp_lost = prev.player_hp - curr.player_hp   # positive = bad
-        # return self.hp_delta_scale * (enemy_hp_lost - player_hp_lost)
+        #Dense reward based on HP changes this step.
 
-        # v1 placeholder
-        return 0.0
+        # v2 formula
+
+        enemy_hp_lost  = prev.enemy_hp  - curr.enemy_hp    # positive = good
+        player_hp_lost = prev.player_hp - curr.player_hp   # positive = bad
+
+        return self.hp_delta_scale * (enemy_hp_lost - player_hp_lost)
+
 
 
 if __name__ == "__main__":

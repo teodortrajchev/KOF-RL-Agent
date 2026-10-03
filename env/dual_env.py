@@ -1,27 +1,10 @@
-# env/dual_env.py
-#
-# PURPOSE:
-#   Drive P1 and P2 with two independent agents against each other in the
-#   game's real local-2P mode, on ONE shared game tick per step — no
+
+#   two independent agents against each other in the
+#   game's real local-2P mode, on one shared game tick per step — no
 #   threading, no synchronized processes. Each call to `DualKOFEngine.step()`
 #   sends both players' keys, sleeps once, captures the screen once, and
 #   returns a separate (obs, reward, ...) tuple for each side.
-#
-#   This is NOT a gym.Env — it can't be, since a gym.Env.step() only takes
-#   one action. Drive it from a custom training loop (see train_dual.py)
-#   that calls DualKOFEngine.step(action_p1, action_p2) once per tick and
-#   feeds the two returned experiences into two separate PPO models.
-#
-# REUSES:
-#   - env/vision.py's ScreenCapture as-is: PLAYER_HP_REGION is P1's bar,
-#     ENEMY_HP_REGION is P2's bar (already fixed UI positions).
-#   - env/position.py's PositionTracker as-is: with assume_self_starts_left
-#     =True, "self" == P1's blob, "enemy" == P2's blob. P2's perspective is
-#     just the sign-flip / negation of P1's result — no second tracker
-#     needed.
-#   - The life-lost detection and reward-shaping logic from KOFEnv.step(),
-#     factored into a helper (`_compute_reward`) so it can be called once
-#     per side without duplicating the tuning constants.
+
 
 import time
 import numpy as np
@@ -41,9 +24,7 @@ class DualGameState:
 class DualKOFEngine:
     """
     mode="training": infinite lives, episode ends only by MAX_STEPS.
-    mode="match": real 2-bar system per side, terminates when either bar
-                  hits 0, with the same timeout tie-break rule as KOFEnv.
-    """
+    mode="match": real 2-bar system per side, terminates when either bar hits 0, with the same timeout tie-break rule as KOFEnv. """
 
     MAX_STEPS = 750
     STACK_SIZE = 4
@@ -77,9 +58,7 @@ class DualKOFEngine:
         self._p1_low_streak = 0
         self._p2_low_streak = 0
 
-    # ─────────────────────────────────────────────
-    # RESET
-    # ─────────────────────────────────────────────
+
     def reset(self):
         self.p1_controller.release_all()
         self.p2_controller.release_all()
@@ -142,9 +121,7 @@ class DualKOFEngine:
         )
         return False
 
-    # ─────────────────────────────────────────────
-    # VECTOR OBS
-    # ─────────────────────────────────────────────
+
     def _build_vector(self, own_hp, opp_hp, dx_norm, buff_state):
         buff_onehot = [0.0, 0.0, 0.0]
         if buff_state in (1, 2, 3):
@@ -165,9 +142,6 @@ class DualKOFEngine:
             self.frame_stack.pop(0)
         return np.concatenate(self.frame_stack, axis=2)
 
-    # ─────────────────────────────────────────────
-    # REWARD (identical tuning to KOFEnv.step(), called once per side)
-    # ─────────────────────────────────────────────
     def _compute_reward(
         self, own_hp, opp_hp, old_own_hp, old_opp_hp,
         own_life_lost, opp_life_lost, action, own_bars, opp_bars,
@@ -207,9 +181,8 @@ class DualKOFEngine:
         reward = (reward_damage + reward_shaping + reward_terminal) / 10.0
         return reward, terminated, damage_dealt, damage_taken
 
-    # ─────────────────────────────────────────────
-    # STEP — one shared tick, two independent results
-    # ─────────────────────────────────────────────
+    # STEP — one tick for both agents
+
     def _run_simultaneous(self, a1: int, a2: int):
         k1, h1 = self.p1_controller.prepare_action(a1, self._p1_enemy_is_right)
         k2, h2 = self.p2_controller.prepare_action(a2, self._p2_enemy_is_right)
@@ -245,7 +218,7 @@ class DualKOFEngine:
         p1_dx_norm = pos_result["dx_norm"]
         p2_dx_norm = -p1_dx_norm
 
-        # ── life-lost detection (mirrors KOFEnv, run for both sides) ──
+        #life-lost detection (
         if self._step_count < self.RESET_GRACE_STEPS:
             p1_life_lost = False
             p2_life_lost = False

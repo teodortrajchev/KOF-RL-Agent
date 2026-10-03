@@ -5,9 +5,7 @@ import pydirectinput
 pydirectinput.PAUSE = 0.0
 
 
-# ============================================================
-# WINDOWS NUMPAD VIRTUAL-KEY CODES
-# ============================================================
+# WINDOWS NUMPAD
 
 VK_NUMPAD1 = 0x61
 VK_NUMPAD2 = 0x62
@@ -16,10 +14,6 @@ VK_NUMPAD4 = 0x64
 VK_NUMPAD5 = 0x65
 VK_NUMPAD6 = 0x66
 
-
-# ============================================================
-# PER-PLAYER KEYMAPS
-# ============================================================
 
 P1_KEYMAP = {
     "left": "a",
@@ -43,7 +37,6 @@ P2_KEYMAP = {
     "up": "up",
     "down": "down",
 
-    # ACTUAL NUMPAD KEYS
     "punch_lt": VK_NUMPAD4,
     "kick_lt": VK_NUMPAD5,
     "buff": VK_NUMPAD6,
@@ -93,9 +86,6 @@ class GameController:
         self.buff_state = 0
         self.keymap = keymap or P1_KEYMAP
 
-    # ========================================================
-    # LOW-LEVEL KEYBOARD HELPERS
-    # ========================================================
 
     @staticmethod
     def _is_numpad_key(key):
@@ -119,7 +109,7 @@ class GameController:
     @staticmethod
     def _numpad_up(vk):
         """
-        Release an actual Windows NUMPAD key.
+        Release a NUMPAD key.
         """
 
         ctypes.windll.user32.keybd_event(
@@ -141,9 +131,7 @@ class GameController:
         else:
             pydirectinput.keyUp(key)
 
-    # ========================================================
     # ACTION DISPATCH
-    # ========================================================
 
     def prepare_action(self, action: int, enemy_is_right: bool = True):
         """Returns (keys_to_press, hold_seconds) without pressing anything."""
@@ -165,7 +153,7 @@ class GameController:
             7: ([km["kick_lt"]], h),
             8: ([km["kick_hv"]], h),
             9: ([km["up"], km["punch_hv"]], h),
-            10: ([away], 2 * h),  # BLOCK = hold AWAY (verify in-game)
+            10: ([away], 2 * h),  # BLOCK
             11: ([km["buff"]], h),
             12: ([km["down"], km["kick_lt"]], h),
             13: ([km["down"], km["punch_hv"]], h),
@@ -187,17 +175,9 @@ class GameController:
     def action_count():
         return 17
 
-    # ========================================================
     # BUFF SYSTEM
-    # ========================================================
 
     def tap_key(self, key):
-        """
-        Public single-key tap.
-
-        Useful for menu confirmation and other
-        non-gameplay actions.
-        """
 
         self._tap(key)
 
@@ -211,17 +191,12 @@ class GameController:
             self.keymap["buff"]
         )
 
-    # ========================================================
-    # PRIMITIVES
-    # ========================================================
 
     def _tap(self, key):
 
         self._key_down(key)
 
-        time.sleep(
-            self.hold_duration
-        )
+        time.sleep( self.hold_duration)
 
         self._key_up(key)
 
@@ -229,9 +204,7 @@ class GameController:
 
         self._key_down(key)
 
-        time.sleep(
-            self.hold_duration * 2
-        )
+        time.sleep(self.hold_duration * 2)
 
         self._key_up(key)
 
@@ -241,17 +214,12 @@ class GameController:
         for key in keys:
             self._key_down(key)
 
-        time.sleep(
-            self.hold_duration
-        )
+        time.sleep(self.hold_duration )
 
         # Release all keys
         for key in keys:
             self._key_up(key)
 
-    # ========================================================
-    # RELEASE EVERYTHING
-    # ========================================================
 
     def release_all(self):
 
@@ -262,8 +230,4 @@ class GameController:
 
             except Exception:
                 pass
-
-    # ========================================================
-    # ACTION COUNT
-    # ========================================================
 

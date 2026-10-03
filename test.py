@@ -12,7 +12,7 @@ DEFAULT_MODEL_PATH = "checkpoints/kof_ppo_20000_steps"
 NUM_EPISODES= 5
 RENDER= True  #False to disable cv2 preview window
 
-def run_agent(model_path: str, mode: str) -> None:
+def run_agent(model_path: str, mode: str, deterministic: bool) -> None:
     print(f"Loading model: {model_path}.zip  (eval mode={mode})")
     env   = KOFEnv(render_mode="human" if RENDER else None, mode=mode)
     model = PPO.load(model_path, env=env)
@@ -28,7 +28,7 @@ def run_agent(model_path: str, mode: str) -> None:
         while not done:
             # deterministic=True → always pick the most likely action
             # (no exploration noise during evaluation)
-            action, _ = model.predict(obs, deterministic=False)
+            action, _ = model.predict(obs, deterministic=deterministic)
             obs, reward, terminated, truncated, info = env.step(int(action))
             total_reward += reward
             steps+= 1
@@ -37,14 +37,17 @@ def run_agent(model_path: str, mode: str) -> None:
             if RENDER:
                 env.render()
 
+        # replace the outcome block
         outcome = ""
         if mode == "match":
-            if info["player_bars"] > info["enemy_bars"]:
-                outcome = "  → WIN"
-            elif info["player_bars"] < info["enemy_bars"]:
-                outcome = "  → LOSS"
+            pb, eb = info["player_bars"], info["enemy_bars"]
+            ph, eh = info["player_hp"], info["enemy_hp"]
+            if pb != eb:
+                outcome = "  → WIN" if pb > eb else "  → LOSS"
+            elif abs(ph - eh) > 1e-6:
+                outcome = "  → WIN (HP)" if ph > eh else "  → LOSS (HP)"
             else:
-                outcome = "  → DRAW (bars) / decided by HP"
+                outcome = "  → DRAW"
 
         print(f"Steps: {steps}  |  Total reward: {total_reward:.2f}{outcome}")
 
@@ -67,5 +70,7 @@ if __name__ == "__main__":
         choices=["training", "match"],
         help="Which env mode to evaluate in (default: match, since that's the real target)",
     )
+    parser.add_argument("--deterministic", action="store_true",
+                        help="Always pick the most likely action (default: sample)")
     args = parser.parse_args()
-    run_agent(args.model, args.mode)
+    run_agent(args.model, args.mode, args.deterministic)

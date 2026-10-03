@@ -197,7 +197,7 @@ class KOFEnv(gym.Env):
             buff_onehot[self.controller.buff_state - 1] = 1.0
 
         time_remaining_norm = 1.0 - (self._step_count / self.MAX_STEPS)
-        hp_diff = enemy_hp - player_hp  # negative = you're losing
+        hp_diff = player_hp - enemy_hp  # negative = you're losing
 
         vec = np.array(
             [dx_norm, *buff_onehot, time_remaining_norm, hp_diff, enemy_hp],
@@ -206,13 +206,7 @@ class KOFEnv(gym.Env):
         return np.clip(vec, -1.0, 1.0)
 
     def _last_dx_norm(self):
-        # position tracker caches its own last result internally via
-        # _self_x/_enemy_x; recompute the light-weight public result
-        # without re-running detection.
-        if self.position_tracker._self_x is None:
-            return 0.0
-        dx = self.position_tracker._enemy_x - self.position_tracker._self_x
-        return float(np.clip(dx / 954.0, -1.0, 1.0))
+        return self._last_pos["dx_norm"] if getattr(self, "_last_pos", None) else 0.0
 
     # STEP
     def step(self, action: int):
@@ -229,6 +223,7 @@ class KOFEnv(gym.Env):
         image_obs = self._stack(frame)
 
         pos_result = self.position_tracker.update(raw_bgr)
+        self._last_pos=pos_result
         self._enemy_is_right = pos_result["enemy_is_right"]
 
         # LIFE-LOST DETECTION (HP resets from near-0 to near-full)

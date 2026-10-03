@@ -210,13 +210,29 @@ class DualKOFEngine:
     # ─────────────────────────────────────────────
     # STEP — one shared tick, two independent results
     # ─────────────────────────────────────────────
+    def _run_simultaneous(self, a1: int, a2: int):
+        k1, h1 = self.p1_controller.prepare_action(a1, self._p1_enemy_is_right)
+        k2, h2 = self.p2_controller.prepare_action(a2, self._p2_enemy_is_right)
+
+        for k in k1: self.p1_controller._key_down(k)
+        for k in k2: self.p2_controller._key_down(k)
+
+        t_prev = 0.0
+        for hold, ctrl, keys in sorted(
+            [(h1, self.p1_controller, k1), (h2, self.p2_controller, k2)],
+            key=lambda e: e[0],
+        ):
+            time.sleep(max(0.0, hold - t_prev))
+            t_prev = hold
+            for k in keys:
+                ctrl._key_up(k)
+
     def step(self, action_p1: int, action_p2: int):
         old_p1_hp = self._prev_state.p1_hp
         old_p2_hp = self._prev_state.p2_hp
 
         # Send both players' inputs within the same tick.
-        self.p1_controller.execute_action(action_p1, enemy_is_right=self._p1_enemy_is_right)
-        self.p2_controller.execute_action(action_p2, enemy_is_right=self._p2_enemy_is_right)
+        self._run_simultaneous(action_p1, action_p2)
 
         time.sleep(0.08)
 

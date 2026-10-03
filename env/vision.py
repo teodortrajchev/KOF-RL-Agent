@@ -12,7 +12,7 @@ DEFAULT_GAME_REGION: dict = {
     "top": 0,
     "left": 0,
     "width": 954,
-    "height": 600,
+    "height": 505,
 }
 
 # HP BAR REGIONS
@@ -128,9 +128,9 @@ class ScreenCapture:
         if reverse:
             mask = np.fliplr(mask)
 
-        cols = np.any(mask > 0, axis=0)
+        col_fill = (mask > 0).mean(axis=0) > 0.4
 
-        filled_width = np.sum(cols)
+        filled_width = int(col_fill.sum())
 
         raw_hp = filled_width / w
 

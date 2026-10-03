@@ -6,6 +6,7 @@ from stable_baselines3.common.callbacks import (
     CheckpointCallback,
     EvalCallback,
 )
+from stable_baselines3.common.monitor import Monitoro
 
 from env.kof_env import KOFEnv
 
@@ -54,7 +55,7 @@ class ModeCurriculumCallback(BaseCallback):
             if not done:
                 continue
             self.episode_count += 1
-            target_env = self.training_env.envs[0]
+            target_env = self.training_env.envs[0].unwrapped
 
             if self.episode_count % self.match_every_n == 0:
                 if target_env.mode != "match":
@@ -70,7 +71,8 @@ class ModeCurriculumCallback(BaseCallback):
 
 def make_env(mode: str):
     def _init():
-        return KOFEnv(render_mode=None, mode=mode)
+        return Monitor(KOFEnv(render_mode=None, mode=mode))
+
     return _init
 
 TOTAL_TIMESTEPS = 1_000_000
@@ -90,7 +92,7 @@ def train():
     # always, since that's the real target you want checkpoint quality
     # judged against.
     env = DummyVecEnv([make_env("training")])
-    eval_env = DummyVecEnv([make_env("match")])
+
 
     # MODEL — MultiInputPolicy, because observation_space is now a Dict
     # ({"image": ..., "vector": ...}). SB3's CombinedExtractor runs a
@@ -119,14 +121,7 @@ def train():
         name_prefix="kof_ppo"
     )
 
-    eval_cb = EvalCallback(
-        eval_env,
-        best_model_save_path=BEST_MODEL_DIR,
-        log_path=LOG_DIR,
-        eval_freq=50_000,
-        deterministic=True,
-        render=False
-    )
+
 
     curriculum_cb = ModeCurriculumCallback()
 
@@ -140,7 +135,7 @@ def train():
 
     model.learn(
         total_timesteps=TOTAL_TIMESTEPS,
-        callback=[checkpoint_cb, eval_cb, curriculum_cb],
+        callback=[checkpoint_cb, curriculum_cb],
         reset_num_timesteps=True
     )
 

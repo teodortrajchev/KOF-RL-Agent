@@ -145,177 +145,47 @@ class GameController:
     # ACTION DISPATCH
     # ========================================================
 
-    def execute_action(
-        self,
-        action: int,
-        enemy_is_right: bool = True
-    ):
-        km = self.keymap
+    def prepare_action(self, action: int, enemy_is_right: bool = True):
+        """Returns (keys_to_press, hold_seconds) without pressing anything."""
+        km, h = self.keymap, self.hold_duration
+        toward = km["right"] if enemy_is_right else km["left"]
+        away = km["left"] if enemy_is_right else km["right"]
 
-        # ----------------------------------------------------
-        # IDLE
-        # ----------------------------------------------------
+        if action == 11:
+            self.buff_state = (self.buff_state % 3) + 1
 
-        if action == 0:
-            time.sleep(self.hold_duration)
-            return
+        table = {
+            0: ([], h),
+            1: ([km["left"]], h),
+            2: ([km["right"]], h),
+            3: ([km["up"], toward], h),
+            4: ([km["down"]], 2 * h),
+            5: ([km["punch_lt"]], h),
+            6: ([km["punch_hv"]], h),
+            7: ([km["kick_lt"]], h),
+            8: ([km["kick_hv"]], h),
+            9: ([km["up"], km["punch_hv"]], h),
+            10: ([away], 2 * h),  # BLOCK = hold AWAY (verify in-game)
+            11: ([km["buff"]], h),
+            12: ([km["down"], km["kick_lt"]], h),
+            13: ([km["down"], km["punch_hv"]], h),
+            14: ([away], h),
+            15: ([toward, km["punch_hv"]], h),
+            16: ([km["extra"]], h),
+        }
+        return table[action]
 
-        # ----------------------------------------------------
-        # MOVEMENT
-        # ----------------------------------------------------
+    def execute_action(self, action: int, enemy_is_right: bool = True):
+        keys, hold = self.prepare_action(action, enemy_is_right)
+        for k in keys:
+            self._key_down(k)
+        time.sleep(hold)
+        for k in keys:
+            self._key_up(k)
 
-        if action == 1:
-            self._tap(km["left"])
-
-        elif action == 2:
-            self._tap(km["right"])
-
-        # ----------------------------------------------------
-        # JUMP FORWARD ATTACK
-        # ----------------------------------------------------
-
-        elif action == 3:
-            toward_key = (
-                km["right"]
-                if enemy_is_right
-                else km["left"]
-            )
-
-            self._combo([
-                km["up"],
-                toward_key
-            ])
-
-        # ----------------------------------------------------
-        # CROUCH
-        # ----------------------------------------------------
-
-        elif action == 4:
-            self._hold(km["down"])
-
-        # ====================================================
-        # ATTACKS
-        # ====================================================
-
-        # Light punch
-        elif action == 5:
-            self._tap(km["punch_lt"])
-
-        # Heavy punch
-        elif action == 6:
-            self._tap(km["punch_hv"])
-
-        # Light kick
-        elif action == 7:
-            self._tap(km["kick_lt"])
-
-        # Heavy kick
-        elif action == 8:
-            self._tap(km["kick_hv"])
-
-        # ----------------------------------------------------
-        # ANTI-AIR COMBO
-        # ----------------------------------------------------
-
-        elif action == 9:
-            self._combo([
-                km["up"],
-                km["punch_hv"]
-            ])
-
-        # ----------------------------------------------------
-        # BLOCK
-        # ----------------------------------------------------
-
-        elif action == 10:
-            self._directional_hold(enemy_is_right)
-
-        # ----------------------------------------------------
-        # BUFF
-        # ----------------------------------------------------
-
-        elif action == 11:
-            self._use_buff()
-
-        # ----------------------------------------------------
-        # CROUCHING LIGHT KICK
-        # ----------------------------------------------------
-
-        elif action == 12:
-            self._combo([
-                km["down"],
-                km["kick_lt"]
-            ])
-
-        # ----------------------------------------------------
-        # CROUCHING HEAVY PUNCH
-        # ----------------------------------------------------
-
-        elif action == 13:
-            self._combo([
-                km["down"],
-                km["punch_hv"]
-            ])
-
-        # ----------------------------------------------------
-        # BACKDASH
-        # ----------------------------------------------------
-
-        elif action == 14:
-            away_key = (
-                km["left"]
-                if enemy_is_right
-                else km["right"]
-            )
-
-            self._tap(away_key)
-
-        # ----------------------------------------------------
-        # FORWARD RUSH + HEAVY PUNCH
-        # ----------------------------------------------------
-
-        elif action == 15:
-            toward_key = (
-                km["right"]
-                if enemy_is_right
-                else km["left"]
-            )
-
-            self._combo([
-                toward_key,
-                km["punch_hv"]
-            ])
-
-        # ----------------------------------------------------
-        # EXTRA
-        # ----------------------------------------------------
-
-        elif action == 16:
-            self._tap(km["extra"])
-
-    # ========================================================
-    # BLOCKING
-    # ========================================================
-
-    def _directional_hold(self, enemy_is_right: bool):
-
-        direction = (
-            self.keymap["right"]
-            if enemy_is_right
-            else self.keymap["left"]
-        )
-
-        try:
-            self._key_down(direction)
-
-            time.sleep(
-                self.hold_duration * 2
-            )
-
-            self._key_up(direction)
-
-        except Exception:
-            pass
+    @staticmethod
+    def action_count():
+        return 17
 
     # ========================================================
     # BUFF SYSTEM
@@ -397,6 +267,3 @@ class GameController:
     # ACTION COUNT
     # ========================================================
 
-    @staticmethod
-    def action_count():
-        return 171

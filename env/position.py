@@ -34,6 +34,7 @@ class PositionTracker:
         min_contour_area: int = 150,
         history: int = 300,
         var_threshold: int = 32,
+
     ):
         self.playfield_band = playfield_band
         self.assume_self_starts_left = assume_self_starts_left
@@ -45,6 +46,9 @@ class PositionTracker:
         self._self_x = None
         self._enemy_x = None
         self._initialized = False
+
+        self._stale_frames = 0
+        self.max_stale_frames = 5
 
     def _new_bg_subtractor(self):
         return cv2.createBackgroundSubtractorMOG2(
@@ -61,6 +65,7 @@ class PositionTracker:
         self._self_x = None
         self._enemy_x = None
         self._initialized = False
+        self._stale_frames = 0
 
     def update(self, frame_bgr: np.ndarray) -> dict:
         """
@@ -83,6 +88,7 @@ class PositionTracker:
         contours.sort(key=cv2.contourArea, reverse=True)
 
         if len(contours) < 2:
+            self._stale_frames += 1
             return self._result(w)
 
         centroids = []
@@ -93,11 +99,14 @@ class PositionTracker:
             centroids.append(m["m10"] / m["m00"])
 
         if len(centroids) < 2:
+            self._stale_frames += 1
             return self._result(w)
 
         centroids.sort()
         left_x, right_x = centroids[0], centroids[1]
 
+        self._stale_frames = 0
+        self._bg.apply(band, learningRate=0.002)
         if not self._initialized:
             if self.assume_self_starts_left:
                 self._self_x, self._enemy_x = left_x, right_x
@@ -122,8 +131,10 @@ class PositionTracker:
             return {"enemy_is_right": True, "dx_norm": 0.0, "valid": False}
 
         dx = self._enemy_x - self._self_x
+        valid = self._stale_frames <= self.max_stale_frames
         return {
             "enemy_is_right": dx >= 0,
-            "dx_norm": float(np.clip(dx / width, -1.0, 1.0)),
-            "valid": True,
+            "dx_norm": float(np.clip(dx / width, -1.0, 1.0)) if valid else 0.0,
+            "valid": valid,
         }
+1

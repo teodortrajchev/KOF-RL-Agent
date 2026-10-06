@@ -6,7 +6,7 @@
 
 import argparse
 from stable_baselines3 import PPO
-from env.kof_env import KOFEnv
+from v1.kof_env import KOFEnv
 
 DEFAULT_MODEL_PATH = "checkpoints/kof_ppo_20000_steps"
 NUM_EPISODES= 5

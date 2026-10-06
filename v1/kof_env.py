@@ -4,7 +4,7 @@ import gymnasium as gym
 from gymnasium import spaces
 from dataclasses import dataclass
 
-from env.controls import GameController
+from v1.controls import GameController
 from env.vision import ScreenCapture
 from env.position import PositionTracker
 

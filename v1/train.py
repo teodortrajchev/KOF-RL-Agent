@@ -4,17 +4,16 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.callbacks import (
     BaseCallback,
     CheckpointCallback,
-    EvalCallback,
 )
-from stable_baselines3.common.monitor import Monitoro
+from stable_baselines3.common.monitor import Monitor
 
-from env.kof_env import KOFEnv
+from v1.kof_env import KOFEnv
 
 
 # PATHS
-LOG_DIR = "./logs"
-CHECKPOINT_DIR = "./checkpoints"
-BEST_MODEL_DIR = "./best_model"
+LOG_DIR = "../logs"
+CHECKPOINT_DIR = "../checkpoints"
+BEST_MODEL_DIR = "../best_model"
 
 os.makedirs(LOG_DIR, exist_ok=True)
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)

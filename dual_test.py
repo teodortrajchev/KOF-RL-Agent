@@ -7,8 +7,8 @@ from stable_baselines3 import PPO
 
 from env.dual_env import DualKOFEngine
 
-DEFAULT_P1_PATH = "checkpoints_dual/p1_final"
-DEFAULT_P2_PATH = "checkpoints_dual/p2_final"
+DEFAULT_P1_PATH = "checkpoints_dual/p1_100000"
+DEFAULT_P2_PATH = "checkpoints_dual/p2_100000"
 NUM_EPISODES = 5
 ACTION_COUNT = 17  # must match GameController.action_count() / make_spaces()
 
